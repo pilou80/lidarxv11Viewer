@@ -16,12 +16,15 @@ SOURCES += main.cpp\
         mainwidget.cpp \
     draw360.cpp \
     lidarxv11.cpp \
-    serialclass.cpp
+    serialclass.cpp \
+    formpid.cpp
 
 HEADERS  += mainwidget.h \
     draw360.h \
     lidarxv11.h \
-    serialclass.h
+    serialclass.h \
+    formpid.h
 
 FORMS    += mainwidget.ui \
-    serialclass.ui
+    serialclass.ui \
+    formpid.ui

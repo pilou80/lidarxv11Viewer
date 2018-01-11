@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <lidarxv11.h>
 
+// ATESTER http://www.qcustomplot.com/
 class draw360 : public QWidget
 {
     Q_OBJECT

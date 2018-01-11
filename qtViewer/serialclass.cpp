@@ -12,8 +12,8 @@ serialClass::serialClass(QWidget *parent) :
     ui->setupUi(this);
 
 
-    serialPort = new QSerialPort(this);
-    connect(serialPort, SIGNAL(readyRead()), this, SLOT(serialDataReadyRead()));
+    m_serialPort = new QSerialPort(this);
+    connect(m_serialPort, SIGNAL(readyRead()), this, SLOT(serialDataReadyRead()));
 
     ui->buttonConnect->setDisabled(true);
     ui->buttonRefresh->setEnabled(true);
@@ -24,6 +24,12 @@ serialClass::serialClass(QWidget *parent) :
 serialClass::~serialClass()
 {
     delete ui;
+}
+
+void serialClass::sendData(QByteArray data)
+{
+    if(m_serialPort->isWritable())
+        m_serialPort->write(data);
 }
 
 void serialClass::on_buttonRefresh_clicked()
@@ -49,20 +55,20 @@ void serialClass::on_buttonRefresh_clicked()
 void serialClass::on_buttonConnect_clicked()
 {
     serialMutex.lock();
-    if(!serialPort->isOpen() &&
+    if(!m_serialPort->isOpen() &&
        ui->comboBoxSerials->count())
     {
-        serialPort->setPortName(ui->comboBoxSerials->currentData().toString());
-        serialPort->setBaudRate(QSerialPort::Baud115200);
-        serialPort->setDataBits(QSerialPort::Data8);
-        serialPort->setFlowControl(QSerialPort::NoFlowControl);
-        serialPort->setParity(QSerialPort::NoParity);
+        m_serialPort->setPortName(ui->comboBoxSerials->currentData().toString());
+        m_serialPort->setBaudRate(QSerialPort::Baud115200);
+        m_serialPort->setDataBits(QSerialPort::Data8);
+        m_serialPort->setFlowControl(QSerialPort::NoFlowControl);
+        m_serialPort->setParity(QSerialPort::NoParity);
         ui->buttonRefresh->setDisabled(true);
         ui->buttonConnect->setDisabled(true);
         ui->comboBoxSerials->setDisabled(true);
         ui->buttonConnect->setText("Connecting ...");
 
-        if(serialPort->open(QIODevice::ReadWrite))
+        if(m_serialPort->open(QIODevice::ReadWrite))
         {
             emit(serialStatusChange(true));
             ui->buttonConnect->setText("Disconnect");
@@ -74,7 +80,7 @@ void serialClass::on_buttonConnect_clicked()
         else
         {
             emit(serialStatusChange(false));
-            qDebug() << serialPort->error();
+            qDebug() << m_serialPort->error();
             ui->buttonRefresh->setDisabled(false);
             ui->buttonConnect->setDisabled(false);
             ui->comboBoxSerials->clear();
@@ -82,10 +88,10 @@ void serialClass::on_buttonConnect_clicked()
             ui->buttonConnect->setText("Connect");
         }
     }
-    else if(serialPort->isOpen())
+    else if(m_serialPort->isOpen())
     {
         emit(serialStatusChange(false));
-        serialPort->close();
+        m_serialPort->close();
         ui->buttonRefresh->setDisabled(false);
         ui->buttonConnect->setDisabled(false);
         ui->comboBoxSerials->setDisabled(false);
@@ -97,136 +103,5 @@ void serialClass::on_buttonConnect_clicked()
 
 void serialClass::serialDataReadyRead()
 {
-    serialMutex.lock();
-    QByteArray tmp = serialPort->readAll();
-    //ui->console->appendPlainText(tmp);
-
-    mainBufferSerial += tmp;
-    //qDebug() << "received :" << mainBufferSerial.count();
-
-    bool reloop = false;
-    do
-    {
-        //qDebug() << "loop :" << mainBufferSerial.count();
-        reloop = false;
-        if( (mainBufferSerial.length() >= 1) &&
-            ((unsigned char)mainBufferSerial.at(0) != 0xAA))
-        {
-            skipBytesUntilAA();
-            reloop = true;
-            qDebug() << "reloop no 0xAA";
-        }
-        else if(mainBufferSerial.length()>=5) //5 => SOF + length + preamble(2)+CRC
-        { //Enough bytes for a frame
-            uint length = (unsigned char)mainBufferSerial.at(1);
-            if(mainBufferSerial.length() >= (int)(length + 5))
-            { //Frame is complete
-                if((unsigned char)mainBufferSerial.at(length + 4) == 0xCC)
-                { //CRC is good
-                    emit(serialFrameReceived(QString::fromLatin1(mainBufferSerial.mid(2,2)),mainBufferSerial.mid(4, length)));
-                    mainBufferSerial = mainBufferSerial.mid(length+5, mainBufferSerial.length()-(length+5));
-                    reloop = true;
-                    //qDebug() << "reloop Frame Done";
-                }
-                else
-                {
-                    skipBytesUntilAA();
-                    reloop = true;
-                    qDebug() << "reloop Bad CRC";
-                }
-            }
-        }
-    }
-    while(reloop);
-    serialMutex.unlock();
-}
-
-void serialClass::skipBytesUntilAA()
-{
-    int index = -1;
-
-    if(mainBufferSerial.length()>1) //Only one byte =>delete all
-    {
-        //Don't check the first for SOF
-        for(int i=1;i<mainBufferSerial.length();i++)
-        {
-           if((unsigned char)mainBufferSerial.at(i) == 0xAA)
-           {
-               index = i;
-               break;
-           }
-        }
-    }
-    else
-        index = -1;
-
-    emit(serialError((index==-1 || index == 0)?mainBufferSerial:mainBufferSerial.left(index-1)));
-
-    if(index == -1)
-        mainBufferSerial.clear();
-    else
-        mainBufferSerial = mainBufferSerial.right(index-1);
-}
-
-void serialClass::sendCommand(QString preamble, QByteArray data)
-{
-    if(preamble.length() < 2)
-        return;
-
-    QByteArray commandData;
-    commandData.append((char)0xAA);
-    commandData.append((char)(data.length()));
-    commandData.append((char)preamble.toLocal8Bit().at(0));
-    commandData.append((char)preamble.toLocal8Bit().at(1));
-    commandData.append(data);
-    commandData.append((char)0xCC); //TODO calculate CRC
-
-    serialMutex.lock();
-    if(serialPort->isOpen())
-    {
-        serialPort->write(commandData);
-    }
-    serialMutex.unlock();
-}
-
-void serialClass::sendCommandWithCRCError(QString preamble, QByteArray data)
-{
-    if(preamble.length() < 2)
-        return;
-
-    QByteArray commandData;
-    commandData.append((char)0xAA);
-    commandData.append((char)(data.length()));
-    commandData.append((char)preamble.toLocal8Bit().at(0));
-    commandData.append((char)preamble.toLocal8Bit().at(1));
-    commandData.append(data);
-    commandData.append((char)0xCB); //TODO calculate CRC and remove 1
-
-    serialMutex.lock();
-    if(serialPort->isOpen())
-    {
-        serialPort->write(commandData);
-    }
-    serialMutex.unlock();
-}
-
-void serialClass::sendCommandWithLengthError(QString preamble, QByteArray data)
-{
-    if(preamble.length() < 2)
-        return;
-
-    QByteArray commandData;
-    commandData.append((char)0xAA);
-    commandData.append((char)(100));
-    commandData.append((char)preamble.toLocal8Bit().at(0));
-    commandData.append((char)preamble.toLocal8Bit().at(1));
-    commandData.append(data);
-    commandData.append((char)0xCC); //TODO calculate CRC
-
-    serialMutex.lock();
-    if(serialPort->isOpen())
-    {
-        serialPort->write(commandData);
-    }
-    serialMutex.unlock();
+    emit(serialDataReceived(m_serialPort->readAll()));
 }

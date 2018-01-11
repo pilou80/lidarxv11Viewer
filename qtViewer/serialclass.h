@@ -17,9 +17,7 @@ public:
     ~serialClass();
 
 public slots:
-    void sendCommand(QString preamble, QByteArray data);
-    void sendCommandWithCRCError(QString preamble, QByteArray data);
-    void sendCommandWithLengthError(QString preamble, QByteArray data);
+    void sendData(QByteArray data);
 
 private slots:
     void on_buttonRefresh_clicked();
@@ -28,18 +26,13 @@ private slots:
     void serialDataReadyRead();
 
 signals:
-    void serialFrameReceived(QString preamble, QByteArray data);
-
-    void serialError(QByteArray errorData);
-
+    void serialDataReceived(QByteArray data);
     void serialStatusChange(bool state);
+
 
 private:
     Ui::serialClass *ui;
-    QSerialPort *serialPort;
-    QByteArray mainBufferSerial;
-
-    void skipBytesUntilAA();
+    QSerialPort *m_serialPort;
     QMutex serialMutex;
 };
 

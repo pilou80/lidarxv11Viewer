@@ -23,6 +23,8 @@ private slots:
 
     void on_spinBoxSpeed_valueChanged(int value);
 
+    void on_serialStatusChange(bool state);
+
 private:
     Ui::mainWidget *ui;
     lidarXV11 *m_lidar;

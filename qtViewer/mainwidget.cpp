@@ -1,6 +1,10 @@
 #include "mainwidget.h"
 #include "ui_mainwidget.h"
 
+#define minSpeed 180
+#define maxSpeed 359
+
+
 mainWidget::mainWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::mainWidget)
@@ -10,6 +14,17 @@ mainWidget::mainWidget(QWidget *parent) :
     m_lidar->m_values = ui->widgetDrawer->m_values;
 
     connect(m_lidar, SIGNAL(lastPacketReceive()), ui->widgetDrawer, SLOT(update()));
+    //connect(m_lidar, SIGNAL(speedReceived(float)), ui->lcdNumberSpeed->set
+
+    connect(ui->widgetSerial, SIGNAL(serialDataReceived(QByteArray)), m_lidar, SLOT(serialReceive(QByteArray)));
+
+    ui->horizontalSliderSpeed->setMinimum(minSpeed);
+    ui->horizontalSliderSpeed->setMaximum(maxSpeed);
+    ui->spinBoxSpeed->setMinimum(minSpeed);
+    ui->spinBoxSpeed->setMaximum(maxSpeed);
+
+    ui->horizontalSliderSpeed->setValue(minSpeed);
+    ui->spinBoxSpeed->setValue(minSpeed);
 }
 
 mainWidget::~mainWidget()
@@ -49,4 +64,9 @@ void mainWidget::on_spinBoxSpeed_valueChanged(int value)
         m_lidar->sendModeSpin(value);
     }
     ui->horizontalSliderSpeed->setValue(value);
+}
+
+void mainWidget::on_serialStatusChange(bool state)
+{
+
 }

@@ -89,9 +89,18 @@
         </layout>
        </item>
        <item>
-        <widget class="QLCDNumber" name="lcdNumberSpeed">
-         <property name="digitCount">
-          <number>4</number>
+        <widget class="QLineEdit" name="lineEditSpeed">
+         <property name="text">
+          <string>0.00 RPM</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+         <property name="clearButtonEnabled">
+          <bool>false</bool>
          </property>
         </widget>
        </item>
